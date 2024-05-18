@@ -1,6 +1,8 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+import customtkinter
+from customtkinter import *
 from tkinter import *
 from tkinter import ttk
 from PIL import Image, ImageTk
@@ -8,6 +10,7 @@ import threading
 import pickle
 import pyttsx3
 import time
+
 
 class Camera:
     def __init__(self, label, letters_label, interface):
@@ -91,44 +94,63 @@ class Camera:
         self.cap.release()
         cv2.destroyAllWindows()
 
+
 class InterfaceUtilisateur:
     def __init__(self, fenetre, model):
+        self.engine = pyttsx3.init()
         self.fenetre = fenetre
-        self.fenetre.geometry('800x480')
+        self.fenetre.geometry('1280x720')
         self.fenetre.title('Convertir la langage des signes en texte et voix')
         self.fenetre['bg'] = '#E2E9C0'
         self.fenetre.resizable(height=False, width=False)
 
-        self.camera_label = Label(self.fenetre, bg='#955149', relief=SOLID, highlightbackground='red', highlightcolor='green')
-        self.camera_label.place(x=0, y=0, width=320, height=220)
 
-        self.letters_label = Label(self.fenetre, text="", bg='#E2E9C0',
-                                   font=("Helvitica", 12), fg="#955149")
+
+
+        # Création des cadres pour diviser l'interface
+        self.frame_gauche = Frame(self.fenetre, bg='#313131')
+        self.frame_gauche.place(relx=0, rely=0, relwidth=0.7, relheight=1)
+
+        self.frame_droite = Frame(self.fenetre, bg='#282828')
+        self.frame_droite.place(relx=0.7, rely=0, relwidth=0.3, relheight=1)
+
+        # Ajout des éléments à la partie gauche (caméra, lettres, phrase)
+        self.camera_label = Label(self.frame_gauche, bg='#e5ddde', relief=SOLID, highlightbackground='red',
+                                  highlightcolor='green')
+        self.camera_label.place(x=0, y=0, width=620, height=420)
+        self.hands_label = Label(self.camera_label, bg='white')
+        self.hands_label.pack(side=RIGHT, padx=5, pady=5)
+
+        self.letters_label = Label(self.frame_gauche, text="", bg='#313131',
+                                   font=("Helvitica", 12), fg="#e5ddde")
         self.letters_label.place(relx=0.05, rely=0.70)
 
-        self.bouton_clear = ttk.Button(self.fenetre, text="    Clear    ", style="TButton",
-                                       command=self.clear_interface)
-        self.bouton_clear.place(relx=0.76, rely=0.35)
-
-        self.style = ttk.Style()
-        self.style.configure('TButton', borderwidth=0, relief=RIDGE, background='#7AA95C')
-        self.style.map('TButton', background=[('active', '#80C4A8')])
-
-        self.bouton_speak = ttk.Button(self.fenetre, text="Audio", style='TButton',
-                                       command=self.speak_phrase)
-        self.bouton_speak.place(relx=0.76, rely=0.05)
-
-        self.bouton_delete = ttk.Button(self.fenetre, text="DEL", style='TButton',
-                                        command=self.delete_letter)
-        self.bouton_delete.place(relx=0.76, rely=0.2)
-
-        self.label_letters = Label(self.fenetre, text="Letters : ", bg="#E2E9C0",
-                                   font=("Helvitica", 12, "bold"), fg="#955149")
+        self.label_letters = Label(self.frame_gauche, text="Letters : ", bg="#313131",
+                                   font=("Helvitica", 12, "bold"), fg="#e5ddde")
         self.label_letters.place(relx=0.02, rely=0.70)
 
-        self.label_phrase = Label(self.fenetre, text="Phrase : ", bg="#E2E9C0",
-                                  font=("Helvitica", 12, "bold"), wraplength=300, fg="#955149")
+        self.label_phrase = Label(self.frame_gauche, text="Phrase : ", bg="#313131",
+                                  font=("Helvitica", 12, "bold"), wraplength=300, fg="#e5ddde")
         self.label_phrase.place(relx=0.02, rely=0.80)
+
+       
+
+        # Ajout des éléments à la partie droite (boutons)
+
+        self.bouton_clear = customtkinter.CTkButton(master=self.frame_droite, text="Clear",
+                                                    command=self.clear_interface)
+        self.bouton_clear.place(relx=0.5, rely=0.2, anchor=CENTER)
+
+        self.bouton_speak = customtkinter.CTkButton(self.frame_droite, text="Audio",
+                                                    command=self.speak_phrase)
+        self.bouton_speak.place(relx=0.5, rely=0.4, anchor=CENTER)
+
+
+        self.bouton_delete = customtkinter.CTkButton(self.frame_droite, text="DEL",
+                                                     command=self.delete_letter)
+        self.bouton_delete.place(relx=0.5, rely=0.6, anchor=CENTER)
+
+
 
         self.model = model
 
@@ -172,9 +194,19 @@ class InterfaceUtilisateur:
         self.fenetre.focus_set()
 
     def speak_phrase(self):
-        engine = pyttsx3.init()
-        engine.say(self.phrase_text)
-        engine.runAndWait()
+        # Réglez la vitesse de la parole
+        self.engine.setProperty('rate', 150)  # 150 mots par minute
+
+        # Utilisez une voix plus claire et naturelle si disponible
+        voices = self.engine.getProperty('voices')
+        for voice in voices:
+            if "french" in voice.languages:
+                self.engine.setProperty('voice', voice.id)
+                break
+
+        # Ajoutez une pause après chaque phrase pour une meilleure compréhension
+        self.engine.say(self.phrase_text)
+        self.engine.runAndWait()
 
     def update_phrase_periodically(self):
         detected_letters = self.camera.detected_letters
@@ -197,6 +229,7 @@ class InterfaceUtilisateur:
         else:
             return letter
 
+
 class ModelePrediction:
     def __init__(self, model_path):
         model_dict = pickle.load(open(model_path, 'rb'))
@@ -205,8 +238,10 @@ class ModelePrediction:
     def predict(self, data):
         return self.model.predict(data)
 
+
 if __name__ == "__main__":
     modele_prediction = ModelePrediction('./model.p')
     fenetre = Tk()
     interface_utilisateur = InterfaceUtilisateur(fenetre, modele_prediction)
     fenetre.mainloop()
+
